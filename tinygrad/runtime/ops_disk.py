@@ -1,10 +1,13 @@
-import os, mmap, _posixshmem, io
+import os, mmap, io
 from typing import Callable, Dict, Tuple
 from tinygrad.dtype import DType, dtypes
-from tinygrad.helpers import prod, OSX
+from tinygrad.helpers import prod, OSX, WINDOWS
 from tinygrad.device import Interpreted, Allocator
 from tinygrad.ops import Op, MovementOps, UnaryOps
 from tinygrad.shape.view import strides_for_shape
+
+if not WINDOWS:
+  import _posixshmem
 
 class UnderlyingDiskBuffer:
   def __init__(self, fd, mem): self.fd, self.mem = fd, mem
@@ -36,7 +39,7 @@ class DiskAllocator(Allocator):
       os.close(fd)
       fd = None
     else:
-      try: fd = os.open(self.device, os.O_RDWR|os.O_CREAT|(0 if OSX else os.O_DIRECT))
+      try: fd = os.open(self.device, os.O_RDWR|os.O_CREAT|(0 if OSX or WINDOWS else os.O_DIRECT))
       except OSError: fd = os.open(self.device, os.O_RDWR|os.O_CREAT)
       if os.fstat(fd).st_size < size: os.ftruncate(fd, size)
       mem = mmap.mmap(fd, size)
